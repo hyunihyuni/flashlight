@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>곶자왈 손전등 탐험</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap">
+<style>
+/* 레이아웃: 한 화면 앱 — 위 단계 칩, 찾을 친구(또는 스티커) 줄, 아래 밤숲 캔버스가 남은 높이 전부 */
+:root{
+  color-scheme: dark;
+  --night:#08130f;      /* 밤 숲 바탕 */
+  --moss:#173326;       /* 패널 */
+  --leaf:#2f5a43;       /* 테두리·비활성 */
+  --lamp:#ffd76a;       /* 손전등 불빛(강조) */
+  --paper:#f3f0de;      /* 글자 */
+  --dim:#a9b8a6;        /* 보조 글자 */
+  --warn:#ff9d7a;       /* 반칙 */
+  --display:"Jua","Gowun Dodum",system-ui,sans-serif;
+  --body:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+}
+html,body{height:100%}
+body{background:var(--night);color:var(--paper);font-family:var(--body);font-size:16px;overflow:hidden}
+.app{height:100%;display:flex;flex-direction:column;gap:10px;padding-block:10px;padding-inline:16px;box-sizing:border-box;max-width:1200px;margin:0 auto}
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;justify-content:space-between}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(22px,3.4vw,32px);margin:0;letter-spacing:.02em;color:var(--lamp);text-wrap:balance}
+.stages{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-family:var(--display);font-size:18px;min-width:56px;min-height:44px;border-radius:22px;border:2px solid var(--leaf);background:transparent;color:var(--paper);cursor:pointer;padding:0 12px}
+.chip[aria-pressed="true"]{background:var(--lamp);color:var(--night);border-color:var(--lamp)}
+.chip .star{color:var(--lamp);margin-left:2px}
+.chip[aria-pressed="true"] .star{color:var(--night)}
+.chip.deco{border-color:var(--lamp)}
+button:focus-visible{outline:3px solid var(--paper);outline-offset:2px}
+.bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--moss);border-radius:14px;padding:8px 12px;min-height:60px;box-sizing:border-box}
+.bar .label{font-family:var(--display);font-size:18px;color:var(--dim);margin-right:4px}
+.slot{display:flex;align-items:center;gap:4px;padding:4px 10px 4px 6px;border-radius:20px;border:2px dashed var(--leaf);font-family:var(--display);font-size:17px;color:var(--dim);transition:background .3s,border-color .3s,color .3s}
+.slot .emo{font-size:24px;line-height:1;filter:brightness(0) invert(.35);transition:filter .3s}
+.slot.got{border-style:solid;border-color:var(--lamp);background:rgba(255,215,106,.14);color:var(--paper)}
+.slot.got .emo{filter:none}
+.slot.pop{animation:pop .5s}
+@keyframes pop{40%{transform:scale(1.25)}}
+.foul{margin-left:auto;font-family:var(--display);font-size:17px;color:var(--warn);padding:2px 10px;border-radius:14px;border:2px solid var(--warn)}
+.foul + .count{margin-left:0}
+.count{margin-left:auto;font-family:var(--display);font-size:20px;color:var(--lamp);font-variant-numeric:tabular-nums}
+/* 꾸미기 스티커 */
+.stk{width:48px;height:48px;border-radius:12px;border:2px solid var(--leaf);background:rgba(255,255,255,.04);font-size:28px;line-height:1;cursor:pointer;display:grid;place-items:center;padding:0}
+.stk[aria-pressed="true"]{border-color:var(--lamp);background:rgba(255,215,106,.22);box-shadow:0 0 12px rgba(255,215,106,.5)}
+.stk:disabled{cursor:not-allowed;filter:brightness(0) invert(.3);opacity:.6}
+.sep{width:2px;height:36px;background:var(--leaf);margin:0 2px}
+.tools{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.tool{font-family:var(--display);font-size:16px;min-height:44px;padding:0 12px;border-radius:12px;border:2px solid var(--leaf);background:transparent;color:var(--paper);cursor:pointer}
+.tool:disabled{opacity:.35;cursor:default}
+.tool.on{background:var(--lamp);color:var(--night);border-color:var(--lamp)}
+.stage{position:relative;flex:1;min-height:280px;border-radius:18px;overflow:hidden;background:#000;touch-action:none}
+canvas{display:block;width:100%;height:100%}
+canvas.hunt{cursor:none}
+canvas.decoc{cursor:pointer}
+.panel{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;background:rgba(5,12,9,.84);padding:20px;box-sizing:border-box;overflow:auto}
+.panel h2{font-family:var(--display);font-weight:400;font-size:clamp(28px,5.5vw,50px);margin:0;color:var(--lamp);text-wrap:balance}
+.panel p{font-size:clamp(17px,2.4vw,23px);margin:0;line-height:1.6;max-width:32ch}
+.panel .stars{font-size:44px;color:var(--lamp);letter-spacing:6px}
+.newstk{font-size:clamp(16px,2.2vw,20px);color:var(--dim)}
+.newstk b{font-size:30px;vertical-align:middle;margin-left:4px}
+.how{display:flex;gap:16px;flex-wrap:wrap;justify-content:center}
+.how div{display:flex;flex-direction:column;align-items:center;gap:6px;width:136px;font-size:17px;line-height:1.4}
+.how .ic{width:62px;height:62px;border-radius:50%;display:grid;place-items:center;font-size:30px;background:radial-gradient(circle,rgba(255,215,106,.55),rgba(255,215,106,0) 70%)}
+.big{font-family:var(--display);font-size:26px;min-height:60px;padding:0 34px;border-radius:30px;border:0;background:var(--lamp);color:var(--night);cursor:pointer;box-shadow:0 0 30px rgba(255,215,106,.45)}
+.big.ghost{background:transparent;color:var(--paper);border:2px solid var(--leaf);box-shadow:none;font-size:20px;min-height:48px}
+.btns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+@media (max-width:560px){.bar .label{display:none}.slot .name{display:none}.slot{padding:4px 6px}.stk{width:44px;height:44px;font-size:24px}}
+@media (prefers-reduced-motion:reduce){.slot.pop{animation:none}}
+</style>
+<style>*,*::before,*::after{box-sizing:border-box}body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+
+
+<div class="app">
+  <div class="top">
+    <h1>곶자왈 손전등 탐험</h1>
+    <div class="stages" id="stages" aria-label="단계 고르기"></div>
+  </div>
+  <div class="bar" id="bar"></div>
+  <div class="stage" id="stage">
+    <canvas id="cv" class="hunt" aria-label="캄캄한 숲. 마우스로 손전등을 비춰 숨은 동물을 찾아요"></canvas>
+
+    <div class="panel" id="intro">
+      <h2>밤에 깨어나는 동물 친구들이 숨었어요</h2>
+      <div class="how">
+        <div><span class="ic">🔦</span>마우스를 <b>살살</b> 움직여 숲을 비춰요</div>
+        <div><span class="ic">🦌</span>동물을 보면 <b>그 위에서 멈춰요</b></div>
+        <div><span class="ic">⏳</span>동그라미가 다 차면 <b>찾았다!</b></div>
+        <div><span class="ic">🙅</span>딸깍 누르면 <b>반칙!</b> 동물이 놀라 도망가요</div>
+      </div>
+      <p class="newstk">찾은 동물은 스티커가 돼요. 마지막에 내 숲을 꾸며요!</p>
+      <button class="big" id="startBtn">탐험 시작</button>
+    </div>
+
+    <div class="panel" id="clear" hidden>
+      <div class="stars" id="clearStars">★</div>
+      <h2 id="clearTitle">다 찾았어요!</h2>
+      <p id="clearMsg"></p>
+      <div class="newstk" id="clearNew"></div>
+      <div class="btns">
+        <button class="big ghost" id="againBtn">한 번 더</button>
+        <button class="big" id="nextBtn">다음 단계</button>
+        <button class="big" id="decoBtn" hidden>내 곶자왈 꾸미기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(()=>{
+const ANIMALS={
+  roe:{e:'🦌',name:'노루'}, badger:{e:'🦡',name:'오소리'}, owl:{e:'🦉',name:'부엉이'},
+  frog:{e:'🐌',name:'달팽이'}, rabbit:{e:'🐇',name:'토끼'}, bird:{e:'🐦',name:'쏙독새'},
+  bat:{e:'🦇',name:'박쥐'}, moth:{e:'🦋',name:'나방'},
+  mouse:{e:'🐁',name:'들쥐'}, cricket:{e:'🦗',name:'귀뚜라미'}
+};
+// 움직이는 방식: drift 천천히 날기 / dash 달리다 멈칫 / hop 가만히 있다 폴짝
+const MOVE={bat:'drift',moth:'drift',mouse:'dash',cricket:'hop'};
+const NATURE=['🌳','🌲','🌿','🌸','🌼','🍄','🪨','🌙','⭐','✨'];
+// 단계: 동물, 손전등 크기, 동물 크기(화면 짧은 변 기준), 멈춰야 하는 시간(초), 가림 정도, 움직이는 동물
+const STAGES=[
+  {pick:['roe','owl','rabbit'], light:.25, size:.14, hold:.7, hide:0},
+  {pick:['roe','badger','frog','moth'], light:.21, size:.115, hold:.9, hide:0},
+  {pick:['badger','owl','rabbit','bat','moth'], light:.18, size:.095, hold:1.0, hide:.35},
+  {pick:['roe','badger','frog','bird','mouse','cricket'], light:.16, size:.08, hold:1.0, hide:.5},
+  {pick:['badger','owl','rabbit','bird','bat','mouse','cricket'], light:.145, size:.07, hold:1.1, hide:.6}
+];
+const CHEERS=['찾았다!','여기 있었네!','반가워!','숨바꼭질 성공!'];
+
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+const stageEl=document.getElementById('stage');
+const bg=document.createElement('canvas'), bctx=bg.getContext('2d');
+const dk=document.createElement('canvas'), dctx=dk.getContext('2d');
+const $=id=>document.getElementById(id);
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const EMOJI='"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+
+let W=0,H=0,DPR=1, mode='hunt', level=0, round=0, cleared=[0,0,0,0,0];
+let animals=[], ptr={x:0,y:0,on:false}, playing=false, lastFind=0, parts=[], toasts=[], audio=null, endTimer=null;
+let fouls=0, flickerUntil=0, collected=new Set(), newThisRound=[];
+// 꾸미기 상태
+let items=[], selTray=null, selItem=null, drag=null, nightView=false, resetArm=0;
+
+function rng(seed){return()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const S=()=>Math.min(W,H);
+const josa=(w,a,b)=>((w.charCodeAt(w.length-1)-44032)%28)?a:b;
+
+/* ---------- 위쪽 칩 ---------- */
+function renderStages(){
+  $('stages').innerHTML=STAGES.map((_,i)=>`<button type="button" class="chip" data-i="${i}" aria-pressed="${mode==='hunt'&&i===level}">${i+1}단계${cleared[i]?'<span class="star">★</span>':''}</button>`).join('')
+    +`<button type="button" class="chip deco" data-i="deco" aria-pressed="${mode==='deco'}">꾸미기</button>`;
+}
+$('stages').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.i==='deco'){enterDeco();return;}
+  level=+b.dataset.i;round++;enterHunt();});
+
+/* ---------- 아래 줄: 찾을 친구 / 스티커 ---------- */
+function renderBar(){
+  if(mode==='hunt'){
+    const got=animals.filter(a=>a.found).length;
+    $('bar').innerHTML='<span class="label">찾을 친구</span>'+animals.map(a=>`<span class="slot${a.found?' got':''}" id="slot-${a.key}"><span class="emo">${a.e}</span><span class="name">${a.found?a.name:'?'}</span></span>`).join('')
+      +(fouls?`<span class="foul">반칙 ${fouls}번</span>`:'')+`<span class="count">${got} / ${animals.length}</span>`;
+  }else{
+    const an=Object.entries(ANIMALS).map(([k,a])=>{const ok=collected.has(k);
+      return `<button type="button" class="stk" data-s="${a.e}" ${ok?'':'disabled'} aria-pressed="${selTray===a.e}" title="${ok?a.name:'아직 못 찾은 친구'}">${a.e}</button>`}).join('');
+    const nt=NATURE.map(e=>`<button type="button" class="stk" data-s="${e}" aria-pressed="${selTray===e}">${e}</button>`).join('');
+    $('bar').innerHTML=an+'<span class="sep"></span>'+nt+`<span class="tools">
+      <button type="button" class="tool" data-t="big" ${selItem?'':'disabled'}>크게</button>
+      <button type="button" class="tool" data-t="small" ${selItem?'':'disabled'}>작게</button>
+      <button type="button" class="tool" data-t="del" ${selItem?'':'disabled'}>지우기</button>
+      <button type="button" class="tool${nightView?' on':''}" data-t="night">🔦 밤 구경</button>
+      <button type="button" class="tool" data-t="reset">${resetArm?'정말 지울까요?':'처음부터'}</button></span>`;
+  }
+}
+$('bar').addEventListener('click',e=>{
+  const s=e.target.closest('.stk'), t=e.target.closest('.tool');
+  if(s&&!s.disabled){selTray=selTray===s.dataset.s?null:s.dataset.s;renderBar();return;}
+  if(!t)return;const k=t.dataset.t;
+  if(k==='big'&&selItem){selItem.s=Math.min(.32,selItem.s*1.25);tone([660],.08);}
+  if(k==='small'&&selItem){selItem.s=Math.max(.045,selItem.s/1.25);tone([440],.08);}
+  if(k==='del'&&selItem){items=items.filter(i=>i!==selItem);selItem=null;tone([300,220],.08);}
+  if(k==='night'){nightView=!nightView;}
+  if(k==='reset'){if(resetArm){items=[];selItem=null;resetArm=0;}else{resetArm=1;setTimeout(()=>{resetArm=0;if(mode==='deco')renderBar();},2500);}}
+  renderBar();
+});
+
+/* ---------- 숲 그리기 ---------- */
+function drawForest(seed){
+  const r=rng(seed*977+13);
+  bg.width=W*DPR;bg.height=H*DPR;bctx.setTransform(DPR,0,0,DPR,0,0);
+  const g=bctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#2c5a40');g.addColorStop(.55,'#3f6e44');g.addColorStop(1,'#4a5a33');
+  bctx.fillStyle=g;bctx.fillRect(0,0,W,H);
+  for(let i=0;i<14;i++){const x=r()*W,w=S()*(.05+r()*.04);bctx.fillStyle='#24452f';bctx.fillRect(x,0,w,H*(.5+r()*.3));}
+  for(let i=0;i<120;i++){bctx.fillStyle=r()<.5?'rgba(110,140,70,.35)':'rgba(70,90,45,.4)';bctx.beginPath();bctx.ellipse(r()*W,H*(.45+r()*.55),S()*(.02+r()*.05),S()*(.008+r()*.015),0,0,7);bctx.fill();}
+  for(let i=0;i<9;i++){const x=r()*W,y=H*(.55+r()*.42),rw=S()*(.05+r()*.06);rock(bctx,x,y,rw,r);}
+  for(let i=0;i<7;i++){const x=r()*W,tw=S()*(.04+r()*.035);
+    bctx.fillStyle='#4a3524';bctx.fillRect(x-tw/2,H*.2,tw,H);
+    bctx.fillStyle='rgba(30,20,12,.4)';bctx.fillRect(x-tw/2,H*.2,tw*.35,H);
+    for(let k=0;k<4;k++){bctx.fillStyle=['#2f6b3a','#3b7d40','#265a31'][k%3];bctx.beginPath();bctx.arc(x+(r()-.5)*S()*.22,H*(.02+r()*.2),S()*(.08+r()*.07),0,7);bctx.fill();}}
+  for(let i=0;i<16;i++){fern(bctx,r()*W,H*(.6+r()*.4),S()*(.05+r()*.05));}
+}
+function rock(c,x,y,rw,r){
+  c.fillStyle='#3d3f3b';c.beginPath();c.ellipse(x,y,rw,rw*.62,0,0,7);c.fill();
+  c.fillStyle='#5f8a4a';c.beginPath();c.ellipse(x-rw*.2,y-rw*.38,rw*.6,rw*.2,0,0,7);c.fill();
+  c.fillStyle='#2b2d2a';for(let k=0;k<4;k++){c.beginPath();c.arc(x+((r?r():.5)-.5)*rw,y+((r?r():.5)-.3)*rw*.4,rw*.06,0,7);c.fill();}
+}
+function fern(c,x,y,l){c.strokeStyle='#5c9a4e';c.lineWidth=2;
+  for(let k=-2;k<=2;k++){c.beginPath();c.moveTo(x,y);c.quadraticCurveTo(x+k*l*.3,y-l*.8,x+k*l*.55,y-l*.5);c.stroke();}}
+// 동물을 가리는 덤불·돌·고사리
+function drawCover(a,p,sz){
+  const h=a.hide; if(!h)return;
+  const cy=p.y+sz*(.62-h*1.05);           // 많이 가릴수록 위로 올라옴
+  ctx.save();
+  if(a.cover==='bush'){
+    const cols=['#2f6b3a','#3b7d40','#2a5f34'];
+    for(let i=0;i<5;i++){ctx.fillStyle=cols[i%3];ctx.beginPath();ctx.arc(p.x+(i-2)*sz*.27,cy+sz*.18+(i%2)*sz*.08,sz*.36,0,7);ctx.fill();}
+    ctx.fillStyle='rgba(150,200,110,.35)';for(let i=0;i<6;i++){ctx.beginPath();ctx.ellipse(p.x+(i-2.5)*sz*.2,cy+sz*.02,sz*.07,sz*.03,i,0,7);ctx.fill();}
+  }else if(a.cover==='rock'){
+    rock(ctx,p.x+a.side*sz*.3,p.y+sz*(.55-h*.55),sz*.58,null);
+  }else{ // 고사리 덤불(옆에서 가림)
+    const x=p.x+a.side*sz*(.5-h*.55);
+    ctx.fillStyle='#2a5f34';ctx.beginPath();ctx.ellipse(x,p.y+sz*.1,sz*.42,sz*.62,0,0,7);ctx.fill();
+    ctx.strokeStyle='#6aa85a';ctx.lineWidth=Math.max(2,sz*.035);
+    for(let k=0;k<5;k++){ctx.beginPath();ctx.moveTo(x,p.y+sz*.6);ctx.quadraticCurveTo(x+(k-2)*sz*.12,p.y-sz*.2,x+(k-2)*sz*.22,p.y-sz*.45);ctx.stroke();}
+  }
+  ctx.restore();
+}
+
+/* ---------- 찾기 모드 ---------- */
+function enterHunt(){mode='hunt';cv.className='hunt';newRound();}
+function newRound(){
+  clearTimeout(endTimer);
+  const st=STAGES[level], r=rng(Date.now()%100000+round*31), s=st.size;
+  animals=[];
+  for(const key of st.pick){
+    let best=null;
+    for(let t=0;t<80;t++){
+      const x=.08+r()*.84, y=.15+r()*.76;
+      const d=animals.reduce((m,a)=>Math.min(m,Math.hypot((a.nx-x)*W,(a.ny-y)*H)),1e9);
+      if(!best||d>best.d) best={x,y,d};
+      if(d>S()*s*3) break;
+    }
+    const mv=MOVE[key]||null, ang=r()*6.28;
+    if(mv==='dash'||mv==='hop') best.y=Math.max(best.y,.55);   // 땅에 사는 친구는 아래쪽
+    animals.push({key,...ANIMALS[key],nx:best.x,ny:best.y,found:false,prog:0,mv,
+      vx:Math.cos(ang)*.05,vy:Math.sin(ang)*.035,ph:r()*6,
+      wait:1+r()*1.5, run:0, dir:r()<.5?-1:1, hopT:-1, hx:0,hy:0,tx:0,ty:0, lift:0,
+      hide:mv?0:st.hide*(.8+r()*.3), cover:['bush','rock','fern'][Math.floor(r()*3)], side:r()<.5?-1:1});
+  }
+  fouls=0;flickerUntil=0;newThisRound=[];
+  drawForest(round+level*7);
+  renderStages();renderBar();
+  $('clear').hidden=true;
+  playing=$('intro').hidden; lastFind=performance.now();
+}
+
+/* ---------- 꾸미기 모드 ---------- */
+function enterDeco(){
+  clearTimeout(endTimer);mode='deco';cv.className='decoc';playing=false;
+  $('intro').hidden=true;$('clear').hidden=true;
+  if(!audio)initAudio();
+  drawForest(4242);renderStages();renderBar();
+}
+// 크기 손잡이: 선택한 스티커 오른쪽 아래의 큰 동그라미
+function handlePos(it){const r=it.s*S()*.62;return{x:it.x*W+r*.71,y:it.y*H+r*.71,R:Math.max(22,S()*.035)}}
+function hitItem(x,y){for(let i=items.length-1;i>=0;i--){const it=items[i],d=Math.hypot(it.x*W-x,it.y*H-y);if(d<it.s*S()*.55)return it;}return null;}
+
+/* ---------- 입력 ---------- */
+function setPtr(e){const b=cv.getBoundingClientRect();ptr.x=e.clientX-b.left;ptr.y=e.clientY-b.top;ptr.on=true;}
+cv.addEventListener('pointermove',e=>{setPtr(e);
+  if(mode==='deco'&&drag&&drag.resize){const it=drag.it;
+    it.s=Math.max(.045,Math.min(.35,Math.hypot(ptr.x-it.x*W,ptr.y-it.y*H)/(S()*.62)));return;}
+  if(mode==='deco'&&drag){drag.it.x=Math.max(0,Math.min(1,(ptr.x-drag.dx)/W));drag.it.y=Math.max(0,Math.min(1,(ptr.y-drag.dy)/H));}});
+cv.addEventListener('pointerdown',e=>{setPtr(e);cv.setPointerCapture?.(e.pointerId);
+  if(mode==='hunt'){ if(e.pointerType==='mouse'&&playing) foul(); return; }
+  if(selItem&&!nightView){const h=handlePos(selItem);
+    if(Math.hypot(ptr.x-h.x,ptr.y-h.y)<h.R+6){drag={it:selItem,resize:true};return;}}
+  const it=hitItem(ptr.x,ptr.y);
+  if(it){selItem=it;items=items.filter(i=>i!==it);items.push(it);drag={it,dx:ptr.x-it.x*W,dy:ptr.y-it.y*H};}
+  else if(selTray){const n={e:selTray,x:ptr.x/W,y:ptr.y/H,s:.11};items.push(n);selItem=n;drag={it:n,dx:0,dy:0};tone([880],.07);
+    if(!reduce)for(let i=0;i<10;i++){const an=Math.random()*6.28,sp=40+Math.random()*80;parts.push({x:ptr.x,y:ptr.y,vx:Math.cos(an)*sp,vy:Math.sin(an)*sp,life:.7});}}
+  else selItem=null;
+  renderBar();
+});
+cv.addEventListener('pointerleave',()=>{if(!drag)ptr.on=false});
+cv.addEventListener('pointerup',e=>{drag=null;if(e.pointerType!=='mouse')ptr.on=false});
+cv.addEventListener('pointercancel',()=>{drag=null;ptr.on=false});
+
+/* ---------- 소리 ---------- */
+function initAudio(){try{audio=new (window.AudioContext||window.webkitAudioContext)();}catch(_){}}
+function tone(freqs,dur=.14){
+  if(!audio)return;try{
+  freqs.forEach((f,i)=>{const o=audio.createOscillator(),g=audio.createGain();o.type='triangle';o.frequency.value=f;
+    const t=audio.currentTime+i*dur;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.18,t+.02);g.gain.exponentialRampToValueAtTime(.001,t+dur*1.6);
+    o.connect(g).connect(audio.destination);o.start(t);o.stop(t+dur*1.8);});}catch(_){}
+}
+
+/* ---------- 반칙: 딸깍 누르면 ---------- */
+function pos(a){return{x:a.nx*W,y:(a.ny-(a.lift||0))*H}}
+function foul(){
+  const now=performance.now(), st=STAGES[level], sz=S()*st.size, LR=S()*st.light;
+  if(now<flickerUntil) return;
+  fouls++; flickerUntil=now+800;
+  tone([196,147],.12);
+  let near=null,bd=1e9;
+  for(const a of animals){if(a.found)continue;const p=pos(a),d=Math.hypot(p.x-ptr.x,p.y-ptr.y);if(d<Math.max(LR,sz*1.2)&&d<bd){bd=d;near=a;}}
+  if(near){
+    const old=pos(near);
+    if(!reduce)for(let i=0;i<14;i++){const an=Math.random()*6.28,sp=40+Math.random()*80;parts.push({x:old.x,y:old.y+sz*.3,vx:Math.cos(an)*sp,vy:-Math.abs(Math.sin(an))*sp,life:.8,dust:true});}
+    let best=null;
+    for(let t=0;t<60;t++){const x=.08+Math.random()*.84,y=.15+Math.random()*.76;
+      let d=Math.hypot(x*W-ptr.x,y*H-ptr.y)/1.6;
+      for(const a of animals){if(a!==near)d=Math.min(d,Math.hypot((a.nx-x)*W,(a.ny-y)*H));}
+      if(!best||d>best.d)best={x,y,d};}
+    near.nx=best.x;near.ny=near.mv==='dash'||near.mv==='hop'?Math.max(best.y,.55):best.y;near.prog=0;near.hopT=-1;near.lift=0;
+    toasts.push({x:old.x,y:old.y-sz*.8,t:`깜짝! ${near.name}${josa(near.name,'이','가')} 도망갔어요`,life:1.8,bad:true});
+  }else{
+    toasts.push({x:ptr.x,y:ptr.y-LR*.6,t:'딸깍! 누르지 말고 기다려요',life:1.6,bad:true});
+  }
+  renderBar();
+}
+
+/* ---------- 찾았다 ---------- */
+function found(a){
+  a.found=true;lastFind=performance.now();
+  if(!collected.has(a.key)){collected.add(a.key);newThisRound.push(a);}
+  const p=pos(a);tone([659,880,1175]);
+  if(!reduce)for(let i=0;i<22;i++){const an=Math.random()*6.28,sp=60+Math.random()*140;parts.push({x:p.x,y:p.y,vx:Math.cos(an)*sp,vy:Math.sin(an)*sp,life:1});}
+  toasts.push({x:p.x,y:p.y-S()*STAGES[level].size*.9,t:CHEERS[Math.floor(Math.random()*CHEERS.length)]+' '+a.name,life:1.6});
+  renderBar();const sl=$('slot-'+a.key);if(sl)sl.classList.add('pop');
+  if(animals.every(x=>x.found)){
+    playing=false;
+    const stars=fouls===0?3:fouls<=2?2:1;
+    cleared[level]=Math.max(cleared[level],stars);
+    endTimer=setTimeout(()=>{
+      tone([523,659,784,1047],.16);
+      const last=level===STAGES.length-1;
+      $('clearStars').textContent='★'.repeat(stars)+'☆'.repeat(3-stars);
+      $('clearTitle').textContent=last?'숲 탐험 대장!':'다 찾았어요!';
+      const fm=fouls===0?'한 번도 누르지 않았어요. 반칙 없이 성공!':`반칙 ${fouls}번. 다음엔 누르지 말고 기다려 봐요.`;
+      $('clearMsg').textContent=(last?'움직이는 친구까지 모두 찾았어요. ':`${level+1}단계 친구 ${animals.length}마리를 모두 찾았어요. `)+fm;
+      $('clearNew').innerHTML=newThisRound.length?'새 스티커를 얻었어요'+newThisRound.map(a=>`<b>${a.e}</b>`).join(''):'';
+      $('nextBtn').hidden=last;$('decoBtn').hidden=!last;
+      renderStages();$('clear').hidden=false;
+    },1100);
+  }
+}
+
+/* ---------- 매 프레임 ---------- */
+let prev=performance.now();
+function frame(now){
+  const dt=Math.min(.05,(now-prev)/1000);prev=now;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  if(mode==='hunt')drawHunt(now,dt);else drawDeco(now,dt);
+  // 반짝 조각·말풍선
+  for(const q of parts){q.x+=q.vx*dt;q.y+=q.vy*dt;q.vy+=120*dt;q.life-=dt*1.3;if(q.life>0){ctx.fillStyle=q.dust?`rgba(190,170,140,${q.life})`:`rgba(255,220,110,${q.life})`;ctx.beginPath();ctx.arc(q.x,q.y,3.5,0,7);ctx.fill();}}
+  parts=parts.filter(q=>q.life>0);
+  ctx.font=`${Math.max(20,S()*.05)}px "Jua","Gowun Dodum",sans-serif`;
+  for(const t of toasts){t.life-=dt;t.y-=dt*18;if(t.life>0){ctx.globalAlpha=Math.min(1,t.life);ctx.lineWidth=5;ctx.strokeStyle='#08130f';const tx=Math.max(S()*.22,Math.min(W-S()*.22,t.x)),ty=Math.max(24,t.y);ctx.strokeText(t.t,tx,ty);ctx.fillStyle=t.bad?'#ffb59a':'#fff3c4';ctx.fillText(t.t,tx,ty);ctx.globalAlpha=1;}}
+  toasts=toasts.filter(t=>t.life>0);
+  requestAnimationFrame(frame);
+}
+
+function darkness(LR,on){
+  dctx.setTransform(DPR,0,0,DPR,0,0);dctx.globalCompositeOperation='source-over';
+  dctx.clearRect(0,0,W,H);dctx.fillStyle='rgba(3,8,6,.965)';dctx.fillRect(0,0,W,H);
+  if(on){dctx.globalCompositeOperation='destination-out';
+    const g=dctx.createRadialGradient(ptr.x,ptr.y,0,ptr.x,ptr.y,LR);
+    g.addColorStop(0,'rgba(0,0,0,1)');g.addColorStop(.62,'rgba(0,0,0,.95)');g.addColorStop(1,'rgba(0,0,0,0)');
+    dctx.fillStyle=g;dctx.beginPath();dctx.arc(ptr.x,ptr.y,LR,0,7);dctx.fill();}
+  ctx.drawImage(dk,0,0,W,H);
+  if(on){ctx.globalCompositeOperation='lighter';
+    const g=ctx.createRadialGradient(ptr.x,ptr.y,0,ptr.x,ptr.y,LR);g.addColorStop(0,'rgba(255,214,120,.16)');g.addColorStop(1,'rgba(255,214,120,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(ptr.x,ptr.y,LR,0,7);ctx.fill();ctx.globalCompositeOperation='source-over';}
+}
+
+function drawHunt(now,dt){
+  const st=STAGES[level], sz=S()*st.size, LR=S()*st.light;
+  for(const a of animals){ if(!a.mv||a.found)continue;
+    a.ph+=dt*2;
+    if(a.mv==='drift'){
+      a.nx+=a.vx*dt; a.ny+=a.vy*dt+Math.sin(a.ph)*.012*dt*(a.key==='moth'?3:1);
+      if(a.nx<.08||a.nx>.92)a.vx*=-1; if(a.ny<.15||a.ny>.9)a.vy*=-1;
+    }else if(a.mv==='dash'){          // 쪼르르 달리다 멈칫
+      if(a.run>0){a.run-=dt; a.nx+=a.dir*.32*dt; a.ny+=Math.sin(a.ph*6)*.01*dt;
+        if(a.nx<.08||a.nx>.92)a.dir*=-1;
+        if(a.run<=0)a.wait=1.4+Math.random()*1.2;}
+      else{a.wait-=dt; if(a.wait<=0){a.run=.5+Math.random()*.7; if(Math.random()<.4)a.dir*=-1;}}
+    }else if(a.mv==='hop'){           // 가만히 있다 폴짝
+      if(a.hopT>=0){a.hopT+=dt/.45; const t=Math.min(1,a.hopT);
+        a.nx=a.hx+(a.tx-a.hx)*t; a.ny=a.hy+(a.ty-a.hy)*t; a.lift=Math.sin(t*Math.PI)*.12;
+        if(t>=1){a.hopT=-1;a.lift=0;a.wait=1.5+Math.random()*1.3;}}
+      else{a.wait-=dt; if(a.wait<=0){a.hopT=0;a.hx=a.nx;a.hy=a.ny;
+        const d=(.12+Math.random()*.1)*(Math.random()<.5?-1:1);
+        a.tx=Math.max(.08,Math.min(.92,a.nx+d*(a.nx+d<.08||a.nx+d>.92?-1:1)));
+        a.ty=Math.max(.55,Math.min(.9,a.ny+(Math.random()-.5)*.1));}}
+    }
+    a.nx=Math.max(.08,Math.min(.92,a.nx));a.ny=Math.max(.15,Math.min(.9,a.ny));}
+  const lit=ptr.on&&playing&&now>=flickerUntil;
+  let target=null;
+  if(lit){let bd=1e9;for(const a of animals){if(a.found)continue;const p=pos(a),d=Math.hypot(p.x-ptr.x,p.y-ptr.y);if(d<sz*.7&&d<bd){bd=d;target=a;}}}
+  for(const a of animals){ if(a.found)continue;
+    if(a===target){a.prog+=dt/st.hold;if(a.prog>=1){a.prog=1;found(a);}}
+    else a.prog=Math.max(0,a.prog-dt*1.5);}
+
+  ctx.drawImage(bg,0,0,W,H);
+  ctx.font=`${sz}px ${EMOJI}`;
+  for(const a of animals){if(a.found)continue;const p=pos(a);ctx.fillStyle='#000';ctx.save();
+    if(a.key==='moth'){ctx.translate(p.x,p.y);ctx.scale(.85+.15*Math.sin(a.ph*4),1);ctx.fillText(a.e,0,0);}
+    else if(a.key==='mouse'){ctx.translate(p.x,p.y);ctx.scale(a.dir>0?-1:1,1);ctx.fillText(a.e,0,0);}
+    else ctx.fillText(a.e,p.x,p.y);ctx.restore();
+    drawCover(a,p,sz);}
+
+  darkness(LR,lit);
+
+  ctx.font=`${sz}px ${EMOJI}`;
+  for(const a of animals){if(!a.found)continue;const p=pos(a);
+    const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,sz*.95);g.addColorStop(0,'rgba(255,215,106,.55)');g.addColorStop(1,'rgba(255,215,106,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,sz*.95,0,7);ctx.fill();ctx.fillStyle='#000';ctx.fillText(a.e,p.x,p.y);}
+
+  if(playing&&now-lastFind>14000){const a=animals.find(x=>!x.found);if(a){const p=pos(a),k=(Math.sin(now/260)+1)/2;
+    ctx.fillStyle=`rgba(255,240,170,${.25+.6*k})`;
+    for(const dx of[-.12,.12]){ctx.beginPath();ctx.arc(p.x+dx*sz,p.y-sz*.15,Math.max(2.5,sz*.045),0,7);ctx.fill();}}}
+
+  if(target&&target.prog>0){const p=pos(target),R=sz*.78;ctx.lineWidth=Math.max(5,sz*.08);ctx.lineCap='round';
+    ctx.strokeStyle='rgba(255,255,255,.25)';ctx.beginPath();ctx.arc(p.x,p.y,R,0,7);ctx.stroke();
+    ctx.strokeStyle='#ffd76a';ctx.beginPath();ctx.arc(p.x,p.y,R,-Math.PI/2,-Math.PI/2+target.prog*Math.PI*2);ctx.stroke();}
+
+  if(ptr.on&&playing){ctx.fillStyle=lit?'#ffd76a':'#ff9d7a';ctx.strokeStyle='#08130f';ctx.lineWidth=2;ctx.beginPath();ctx.arc(ptr.x,ptr.y,5,0,7);ctx.fill();ctx.stroke();}
+}
+
+function drawDeco(now){
+  ctx.drawImage(bg,0,0,W,H);
+  ctx.globalAlpha=1;ctx.fillStyle='#000';
+  for(const it of items){ctx.font=`${it.s*S()}px ${EMOJI}`;ctx.fillText(it.e,it.x*W,it.y*H);}
+  if(nightView){
+    darkness(S()*.2,ptr.on);
+    // 반딧불이·별 스티커는 밤에 빛나요
+    for(const it of items){if(!['✨','⭐','🌙'].includes(it.e))continue;const x=it.x*W,y=it.y*H,R=it.s*S()*(.9+.1*Math.sin(now/300));
+      const g=ctx.createRadialGradient(x,y,0,x,y,R);g.addColorStop(0,'rgba(255,230,140,.6)');g.addColorStop(1,'rgba(255,230,140,0)');
+      ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,R,0,7);ctx.fill();ctx.fillStyle='#000';ctx.font=`${it.s*S()}px ${EMOJI}`;ctx.fillText(it.e,x,y);}
+  }
+  if(selItem&&!nightView){const r=selItem.s*S()*.62;ctx.setLineDash([8,6]);ctx.lineWidth=3;ctx.strokeStyle='#ffd76a';ctx.beginPath();ctx.arc(selItem.x*W,selItem.y*H,r,0,7);ctx.stroke();ctx.setLineDash([]);
+    const h=handlePos(selItem), on=drag&&drag.resize;
+    ctx.fillStyle=on?'#fff3c4':'#ffd76a';ctx.strokeStyle='#08130f';ctx.lineWidth=3;
+    ctx.beginPath();ctx.arc(h.x,h.y,h.R*(on?1.12:1),0,7);ctx.fill();ctx.stroke();
+    // 대각선 양쪽 화살표
+    const a=h.R*.5;ctx.lineWidth=Math.max(2.5,h.R*.13);ctx.lineCap='round';ctx.beginPath();
+    ctx.moveTo(h.x-a,h.y-a);ctx.lineTo(h.x+a,h.y+a);
+    ctx.moveTo(h.x-a,h.y-a);ctx.lineTo(h.x-a+a*.7,h.y-a);ctx.moveTo(h.x-a,h.y-a);ctx.lineTo(h.x-a,h.y-a+a*.7);
+    ctx.moveTo(h.x+a,h.y+a);ctx.lineTo(h.x+a-a*.7,h.y+a);ctx.moveTo(h.x+a,h.y+a);ctx.lineTo(h.x+a,h.y+a-a*.7);
+    ctx.stroke();}
+  if(!items.length){
+    ctx.fillStyle='rgba(5,12,9,.6)';const bw=Math.min(W-32,520),bh=Math.max(70,S()*.16);ctx.fillRect(W/2-bw/2,H/2-bh/2,bw,bh);
+    ctx.fillStyle='#fff3c4';ctx.font=`${Math.max(18,Math.min(28,S()*.045))}px "Jua","Gowun Dodum",sans-serif`;
+    ctx.fillText(selTray?'숲을 누르면 스티커가 붙어요':'위에서 스티커를 먼저 골라요',W/2,H/2);
+  }
+}
+
+/* ---------- 크기 ---------- */
+function resize(){
+  const b=stageEl.getBoundingClientRect();DPR=Math.min(2,window.devicePixelRatio||1);
+  W=Math.max(1,b.width);H=Math.max(1,b.height);
+  for(const c of[cv,dk]){c.width=W*DPR;c.height=H*DPR;}
+  drawForest(mode==='deco'?4242:round+level*7);
+}
+new ResizeObserver(resize).observe(stageEl);
+
+/* ---------- 버튼 ---------- */
+$('startBtn').onclick=()=>{initAudio();$('intro').hidden=true;playing=true;lastFind=performance.now();};
+$('againBtn').onclick=()=>{round++;newRound();playing=true;};
+$('nextBtn').onclick=()=>{level=Math.min(STAGES.length-1,level+1);round++;newRound();playing=true;};
+$('decoBtn').onclick=enterDeco;
+
+resize();newRound();requestAnimationFrame(frame);
+})();
+</script>
+
+</body>
+</html>
